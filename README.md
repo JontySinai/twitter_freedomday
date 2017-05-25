@@ -21,6 +21,8 @@ Accompanying freedomday_dashboard.\* are all the files necessary to generate the
 
 Finally I have included [twitter_stream.rmd](twitter_stream.rmd) and [cleaning_script.r](cleaning_script.r) to show how the original Twitter data was streamed and cleaned to produce the feathers for the dashboard.
 
+The raw twitter data has been deliberately excluded from this repo to protect user privacy. 'cleaning_script.r' is therefore a reading exercise. 
+
 ## Privacy
 
 With the exception of high profile Twitter accounts, no single Twitter user's account has been explicitly identified throughout this project. All of the visualisations are of aggregate data and cannot be traced to a particular tweet or individual\*. All of the feather files have been anonomysed and contain no user information. 
