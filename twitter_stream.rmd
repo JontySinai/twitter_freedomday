@@ -14,8 +14,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(streamR)
 library(ROAuth)
-library(DBI)
-library(RSQLite)
 library(twitteR)
 library(feather)
 
@@ -89,15 +87,3 @@ We use the `feather` package to save the dataframe as a .feather file which can 
 # write_feather(freedom_day_stream.df, "tweets_freedom_day.feather")
 
 ```
-
-Finally we persist the tweets in a SQLite database using RSQLite
-
-```{r persist_database}
-
-freedom_day_db <- dbConnect(RSQLite::SQLite(), "freedom_day_tweets.sqlite")
-
-# write the data frame to the database
-dbWriteTable(freedom_day_db, "freedom_day_tweets", freedom_day_stream.df)
-
-```
-
