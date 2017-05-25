@@ -1,0 +1,103 @@
+# ---
+title: "Twitter Streaming Connection"
+author: "Jonty Sinai"
+date: "26 April 2017"
+output: github_document
+---
+
+Warning: DO NOT KNIT
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# "streamR" connects to the Twitter Streaming API. "ROAuth" establishes authentication to the Twitter Api using the OAuth standard
+
+library(streamR)
+library(ROAuth)
+library(DBI)
+library(RSQLite)
+library(twitteR)
+library(feather)
+
+options(stringsAsFactors = FALSE)
+```
+
+This is a short script which connects to the Twtitter Streaming API and streams tweets related to Freedom Day (27th April, South Africa) for 30 hours. The stream filters for tweets containting the hashtags #FreedomDay, #FreedomMovement, #SAUnite, #savesa, #27April within the geographic region of South Africa (this is to avoid streaming tweets for Freedom Day in Portugal and the Freedom March in the United States).
+
+To stream tweets, we use the following libraries:
+
+- streamR which wraps queries to the Twitter Streaming API
+- ROAuth which generates and authorisation token for the API
+
+The first step is to authenticate this script to the Twitter API using the Foundery's dev account on Twitter (go to https://dev.twitter.com and sign in with the normal Twitter login details).
+
+```{r authentication, echo=FALSE}
+
+# We need to request authorisation tokens to run the streaming connection to the API. These url's can be accessed from https://apps.twitter.com/app/13501011/show and logging in with the @foundery_za credentials.
+
+requestURL <- "https://api.twitter.com/oauth/request_token"
+accessURL <- "https://api.twitter.com/oauth/access_token"
+authURL <- "https://api.twitter.com/oauth/authorize"
+
+# authentication masked
+consumerKey <-  oauth_keys$consumer_key
+consumerSecret <- oauth_keys$consumer_secret
+
+# We now establish connection to the Streaming API
+
+my_oauth <- OAuthFactory$new(consumerKey = consumerKey, 
+consumerSecret = consumerSecret, 
+requestURL = requestURL, 
+accessURL = accessURL, 
+authURL = authURL)
+
+my_oauth$handshake(cainfo = system.file("CurlSSL", "cacert.pem", package = "RCurl"))
+
+# The handshake will open a window in the browser with a pin for authenticating this requesr. To complete the handshake, copy the pin into the R console and immediately save the OAuth token to the repo.
+
+# TODO: Automate Pin Procedure
+
+# save(my_oauth, file = "my_oauth.Rdata")
+
+```
+
+DO NOT KNIT
+
+Once the Oauth token has been generated and saved to the workspace directory, we can start streaming tweets. An ordinary search on the Twitter website for "#FreedomDay" reveals that other important hashtags are "#FreedomMovement", #SAUnite", "#savesa" and "#27April". 
+
+To avoid overstreaming tweets, we can restrict the search to tweets with a location tag contained in the geographic region with south-east corner 35 S, 16 E and north-west corner 21 S, 34 E which contains the entire region of South Africa. These coordiantes were obtained by dropping pins in Google Maps. 
+
+The stream is run for 30 hours, with each new stream appended to the file "freedom_day_stream.json". 
+
+After the stream is complete, the JSON file is parsed (using simple rules from the API) to a data frame which can the be processed and manipulated for interesting analysis. 
+
+We use the `feather` package to save the dataframe as a .feather file which can be read by both R and Python (Pandas).
+
+```{r stream_tweets}
+
+# South Africa is contained in the box with southwest corner = (-35,16) and northeast corner = (-21,34) - data obtained from Google Maps
+
+# For safety the rest of this code is commented out
+
+# filterStream("freedom_day_stream.json", track = c("#FreedomDay", "#SAUnite", "#savesa","#FreedomMovement","#27April"), timeout = 30*3600, oauth = my_oauth, locations = c(-35,16,-21,34))
+
+
+# freedom_day_stream.df <- parseTweets("freedom_day_stream.json", simplify = TRUE)
+
+# save(freedom_day_stream.df, file = "freedom_day_stream.RData")
+
+# write_feather(freedom_day_stream.df, "tweets_freedom_day.feather")
+
+```
+
+Finally we persist the tweets in a SQLite database using RSQLite
+
+```{r persist_database}
+
+freedom_day_db <- dbConnect(RSQLite::SQLite(), "freedom_day_tweets.sqlite")
+
+# write the data frame to the database
+dbWriteTable(freedom_day_db, "freedom_day_tweets", freedom_day_stream.df)
+
+```
+

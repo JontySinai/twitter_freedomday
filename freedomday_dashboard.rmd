@@ -1,0 +1,421 @@
+---
+title: "Freedom Day Twitter Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+
+# libraries
+
+library(flexdashboard)
+library(feather)
+library(png)
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(tidyr)
+library(wordcloud)
+library(leaflet)
+
+# globals
+
+search_query <- c("#FreedomDay", "#FreedomMovement", "#SAUnite", "#SaveSA", "#27April")
+
+`%not in%` <- function (x, table) is.na(match(x, table, nomatch=NA_integer_))
+
+getBlueTheme <- colorRampPalette(brewer.pal(9, "Blues")[4:9])
+getBlueTheme_darker <- colorRampPalette(brewer.pal(9, "Blues")[6:9])
+
+getRedTheme <- colorRampPalette(brewer.pal(9, "Reds")[4:9])
+getRedTheme_darker <- colorRampPalette(brewer.pal(9, "Reds")[6:9])
+
+# feathers
+summary <- read_feather("feathers/summary.feather")
+all_hashtags <- read_feather("feathers/all_hashtags.feather")
+all_mentions <- read_feather("feathers/all_mentions.feather")
+words <- read_feather("feathers/words.feather")
+status_words <- read_feather("feathers/status_words.feather")
+pos_sentiment <- read_feather("feathers/pos_sentiment.feather")
+neg_sentiment <- read_feather("feathers/neg_sentiment.feather")
+sentiment_over_time <- read_feather("feathers/sentiment_over_time.feather")
+emoji_sentiment <- read_feather("feathers/emoji_sentiment.feather")
+geocodes <- read_feather("feathers/geocodes.feather")
+
+```
+
+Column {.sidebar data-width=300}
+=============================================================
+
+-------------------------------------------------------------
+
+```{r logo, out.width = "285px"}
+
+knitr::include_graphics("pictures/FOUNDeRY.png")
+
+```
+
+--------------------------------------------------------------
+
+## About
+
+The 27th April in South Africa - known as Freedom Day - marks the anniversary of the first democratic election in modern South Africa.  
+
+To see what people in South Africa (and around the world) were saying, tweets related to Freedom Day were streamed over a 30 hour period beginning *Wed April 26 16:17:26 GMT+2:00* (local Johannesburg time) and ending *Thu April 27 22:17:26 GMT+2:00*.
+
+The stream tracked the following hashtags **#FreedomDay**, **#SAUnite**, **#savesa**, **#FreedomMovement** and **#27April**. 
+
+--------------------------------------------------------------
+
+### Privacy
+
+All data used to produce the visualisations in this dashboard has been anonymised, including geographic data which has been aggregated over a sample of 2000 tweets.
+
+Summary{data-icon="fa-binoculars"}
+=============================================================
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### The stream at a glance
+
+```{r summary, echo = FALSE}
+
+## Now lets plot bar plots
+
+# data and dimensions for the plot
+g_tweet_activity_plot <- ggplot(data = summary, aes(x = class, y = totals))
+
+# type of plot: bar plot
+g_tweet_activity_plot <- g_tweet_activity_plot + geom_bar(stat = "identity", width = 0.8, fill = getBlueTheme(4))
+
+# add text to the bars
+g_tweet_activity_plot <- g_tweet_activity_plot + geom_text(aes(label = totals), hjust = c(1.2, 1.2, 1.2, -0.2), colour = c( "white" , "white" , "white","gray33"), size = 9)
+
+# add and format plot title
+g_tweet_activity_plot <-  g_tweet_activity_plot + ggtitle("Summary of Total Tweet Activity") + theme(plot.title = element_text(size = 19, hjust = 0.2, vjust = 2))
+
+# format axis
+g_tweet_activity_plot <- g_tweet_activity_plot + labs(x = "", y = "") + theme(axis.text = element_text(color = "grey20",size = 15, hjust = -0.2))
+
+# format background
+g_tweet_activity_plot <- g_tweet_activity_plot + theme(panel.background = element_rect(fill = "white"), axis.line = element_line(color = "grey20"))
+
+# display the plot
+g_tweet_activity_plot + coord_flip()
+
+
+```
+
+### Most common words
+
+```{r tweet wordcloud, echo = FALSE}
+
+set.seed(123)
+wordcloud(words = words$word, freq = words$freq ,max.words = 90, scale = c(3,1), rot.per = 0.35, colors = getBlueTheme_darker(90), use.r.layout=FALSE)
+
+```
+
+### Self-identification in statuses
+
+```{r status wordcloud, echo = FALSE}
+
+wordcloud(words = status_words$word, freq = status_words$freq, max.words = 80, scale = c(3,1), rot.per = 0.35, colors = getBlueTheme_darker(80), use.r.layout=FALSE)
+
+```
+
+### Most retweeted tweet
+
+```{r desmond tweet, out.width = "285px"}
+
+knitr::include_graphics("pictures/desmond_tutu_tweet.png")
+
+```
+
+Hashtags{data-icon="fa-hashtag"}
+=============================================================
+
+```{r most common hashtags, echo = FALSE}
+
+## Now let's plot
+
+most_hashtags <- all_hashtags %>% arrange(desc(freq)) %>% head(15)
+
+# data and axis mapping
+g_most_hashtags <- ggplot(data = most_hashtags, aes(x = reorder(tag, freq), y = freq, fill = tag))
+
+# specify bar plot   
+g_most_hashtags <- g_most_hashtags + geom_bar(stat = "identity", width = 0.8, fill = getBlueTheme(15))
+
+# put in a title and format
+g_most_hashtags <- g_most_hashtags + ggtitle("Most common hashtags in the stream*") + theme(plot.title = element_text(size = 19, hjust = 0.2, vjust = 2))
+
+# format axis and put in a caption
+g_most_hashtags <- g_most_hashtags + labs(caption = "* excluding the search query hashtags", x = "", y = "")
+
+# format background
+g_most_hashtags <- g_most_hashtags + theme(panel.background = element_rect(fill = "white"), axis.line = element_line(color = "grey20"))
+
+# show plot
+g_most_hashtags + guides(fill = FALSE) + coord_flip()
+
+```
+
+Mentions{data-icon="fa-at"}
+=============================================================
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Most mentions
+
+```{r most mentions, echo = FALSE}
+
+most_mentions <- all_mentions %>% arrange(desc(freq)) %>% head(15)
+
+## Now let's plot
+
+# data and axis mapping
+g_most_mentions <- ggplot(most_mentions, aes(x = reorder(mention, freq), y = freq, fill = mention))
+
+# specify bar plot   
+g_most_mentions <- g_most_mentions + geom_bar(stat = "identity", width = 0.8, fill = getBlueTheme(15))
+
+# put in a title and format
+g_most_mentions <- g_most_mentions + ggtitle("Most mentioned users in the stream") + theme(plot.title = element_text(size = 19, hjust = 0.2, vjust = 2))
+
+# format axis and put in a caption
+g_most_mentions <- g_most_mentions + labs( x = "", y = "")
+
+# format background
+g_most_mentions <- g_most_mentions + theme(panel.background = element_rect(fill = "white"), axis.line = element_line(color = "grey20"))
+
+# show plot
+g_most_mentions + guides(fill = FALSE) + coord_flip()
+
+```
+
+### @Thom_astro? Why were people mentioning a celebrity astronaught?
+
+```{r stro tweet, out.width = "285px"}
+
+knitr::include_graphics("pictures/thom_astro_tweet.png")
+
+```
+
+Sentiment{data-icon="fa-heartbeat"}
+=============================================================
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Sentiment at a glance
+
+```{r pos neg sentiment, echo = FALSE}
+
+num_pos <- nrow(pos_sentiment)
+num_neg <- nrow(neg_sentiment)
+
+total_emotions <- num_pos + num_neg
+
+pos_neg = data.frame(sentiment = c("positive", "negative"), percent = c((num_pos/total_emotions)*100, (num_neg/total_emotions)*100))
+pos_neg$percent <- round(pos_neg$percent)
+
+## Now let's plot
+
+g_pos_neg <- ggplot(data = pos_neg, aes(x = reorder(sentiment, -percent), y = percent))
+
+# bar plot
+g_pos_neg <-  g_pos_neg + geom_bar(stat = "identity", width = 0.8,fill = c("dodgerblue3", "brown2"))
+
+# title
+g_pos_neg <-  g_pos_neg + ggtitle("Overall Sentiment Score") + theme(plot.title = element_text(size = 19, hjust = 0.2, vjust = 2))
+
+# format axis
+g_pos_neg <- g_pos_neg + labs(x = "", y = "percent") + theme(axis.text.x = element_text(size = 18))
+
+# add scores to the bars
+g_pos_neg <- g_pos_neg + geom_text(aes(label = percent), vjust = 2, colour = c( "white" , "white"), size = 9)
+
+# format background
+g_pos_neg <- g_pos_neg + theme(panel.background = element_rect(fill = "white"), axis.line = element_line(color = "grey20"))
+
+# show plot
+g_pos_neg
+
+```
+
+### Sentiment over time
+
+```{r sentiment over time , echo = FALSE}
+
+# make negative sentiment scores negative values
+
+sentiment_over_time$negative <- -sentiment_over_time$negative
+
+# use gather to tell ggplot how to group columns for a multibar plot
+sentiment_over_time.gather <- gather(sentiment_over_time, key = sentiment, value = score, negative:positive)
+
+
+## Now plot
+
+# initiate multi-bar plot
+g_sentiment_time <- ggplot(sentiment_over_time.gather, aes(x = time_interval, y = score, fill = sentiment)) + geom_bar(stat = "identity")
+
+# put in a title and format
+g_sentiment_time <- g_sentiment_time + ggtitle("Sentiment volume per hour") + theme(plot.title = element_text(size = 19, hjust = 0.2, vjust = 2))
+
+# format axis
+g_sentiment_time <- g_sentiment_time + labs(x = "time", y = "total sentiment score")
+
+# format background
+g_sentiment_time <- g_sentiment_time + theme(panel.background = element_rect(fill = "white"), axis.line = element_line(color = "grey20"))
+
+# show plot
+g_sentiment_time + scale_fill_manual(values = c("brown2", "dodgerblue3"))
+```
+
+### Positive words
+
+```{r positive words, echo = FALSE}
+
+pos_words <- data.frame(word = pos_sentiment$word)
+pos_words <- summarise(group_by(pos_words, word), n())
+colnames(pos_words) <- c("word", "freq")
+
+
+# positive wordcloud
+wordcloud(words = pos_words$word, freq = pos_words$freq, max.words = 30, scale = c(3,2), rot.per = 0.35, colors = getBlueTheme_darker(30), use.r.layout=FALSE)
+
+```
+
+### Negative words
+
+```{r negative words, echo = FALSE}
+
+neg_words <- data.frame(word = neg_sentiment$word)
+neg_words <- summarise(group_by(neg_words, word), n())
+colnames(neg_words) <- c("word", "freq")
+
+
+# negative word cloud
+wordcloud(words = neg_words$word, freq = neg_words$freq, max.words = 30, scale = c(2.5,1.5), rot.per = 0.35, colors = getRedTheme(30), use.r.layout=FALSE)
+```
+
+Emojis{data-icon="fa-smile-o"}
+=============================================================
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Most common emojis
+
+```{r emoji bar plot, echo = FALSE}
+
+most_emojis <- emoji_sentiment[order(emoji_sentiment$freq, decreasing = TRUE), ]
+most_emojis <- head(most_emojis, 10)
+
+## Now plot
+
+g_most_emojis <- ggplot(data = most_emojis, aes(x = reorder(icon, freq), y = freq, fill = icon))
+
+# bar plot
+g_most_emojis <- g_most_emojis + geom_bar(stat = "identity", width = 0.8, fill = getBlueTheme(10))
+
+# add text to the bars
+label_position = c(1.2, 1.8, 1.15, 1.2, -0.15, -0.08, -0.1, -0.05, -0.3, -0.1)
+label_colours = c("white", "white", "white", "white", "gray33", "gray33", "gray33", "gray33", "gray33", "gray33")
+
+g_most_emojis <- g_most_emojis + geom_text(aes(label = description), hjust = label_position, colour = label_colours, size = 4.5)
+
+# put in a title and format
+g_most_emojis <- g_most_emojis + ggtitle("Most common emojis in the stream") + theme(plot.title = element_text(size = 19, hjust = 0.2, vjust = 2))
+
+# format axis
+g_most_emojis <- g_most_emojis + labs(x = "emoji icons", y = "") + theme(axis.text = element_text(color = "grey20",size = 13))
+
+# format background
+g_most_emojis  <- g_most_emojis  + theme(panel.background = element_rect(fill = "white"), axis.line = element_line(color = "grey20"))
+
+# show plot
+g_most_emojis + coord_flip()
+
+```
+
+### Emoji sentiment
+
+```{r emoji sentiment score, echo = FALSE}
+
+pos_emojis <- subset(emoji_sentiment, emoji_sentiment$sentiment == "positive")
+neg_emojis <- subset(emoji_sentiment, emoji_sentiment$sentiment == "negative")
+neutral_emojis <- subset(emoji_sentiment, emoji_sentiment$sentiment == "neutral")
+
+emoji_pos_neg <-data.frame(sentiment = c("positive", "negative", "neutral"), 
+                           percent = c((nrow(pos_emojis)/nrow(emoji_sentiment))*100, 
+                                       (nrow(neg_emojis)/nrow(emoji_sentiment))*100,
+                                       (nrow(neutral_emojis)/nrow(emoji_sentiment))*100))
+
+emoji_pos_neg$percent <- round(emoji_pos_neg$percent)
+
+## Now let's plot
+
+g_emoji_pos_neg <- ggplot(data = emoji_pos_neg, aes(x = reorder(sentiment, -percent), y = percent))
+
+# bar plot
+g_emoji_pos_neg <-  g_emoji_pos_neg + geom_bar(stat = "identity", width = 0.8,fill = c("dodgerblue3", "brown2", "gray20"))
+
+# title
+g_emoji_pos_neg <-  g_emoji_pos_neg + ggtitle("Emoji Sentiment Summary") + theme(plot.title = element_text(size = 19, hjust = 0.2, vjust = 2))
+
+# format axis
+g_emoji_pos_neg <- g_emoji_pos_neg + labs(x = "", y = "percent") + theme(axis.text.x = element_text(size = 18))
+
+# add scores to the bars
+g_emoji_pos_neg <- g_emoji_pos_neg + geom_text(aes(label = percent), vjust = c(2, -1, -1), colour = c( "white" , "gray33", "gray33"), size = 9)
+
+# format background
+g_emoji_pos_neg <- g_emoji_pos_neg + theme(panel.background = element_rect(fill = "white"), axis.line = element_line(color = "grey20"))
+
+# show plot
+g_emoji_pos_neg
+
+```
+
+### Positive emojis
+
+```{r positive emoji wordcloud, echo = FALSE}
+
+wordcloud(words = pos_emojis$icon, freq = pos_emojis$freq, max.words = 50, scale = c(4,3), rot.per = 0, , colors = getBlueTheme_darker(50), use.r.layout=FALSE)
+```
+
+### Negative emojis
+
+```{r negative emoji wordcloud, echo = FALSE}
+
+wordcloud(words = neg_emojis$icon, freq = neg_emojis$freq, max.words = 40, scale = c(4,3), rot.per = 0, , colors = getRedTheme_darker(40), use.r.layout=FALSE)
+```
+
+
+Map{data-icon="fa-map-o"}
+=============================================================
+
+```{r map of tweets}
+
+colnames(geocodes) <- c("long", "lat", "freq")
+geocodes <- subset(geocodes, geocodes$freq < 342)
+
+sa_map <- leaflet(data = geocodes) %>% 
+          addTiles() %>% 
+          addCircles(lng = ~long, 
+                     lat = ~lat, 
+                     radius = ~sqrt(freq)*8e3,
+                     fillOpacity = 0.3, 
+                     stroke = TRUE)  %>% 
+          fitBounds(16, -35, 34, -21) 
+
+sa_map
+
+```
+
