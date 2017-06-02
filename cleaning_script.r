@@ -52,6 +52,9 @@ raw_tweets <- read_feather("tweets_freedom_day.feather")
 # use iconv to convert UTF-8 to ASCII (which R can read)
 tweets <- raw_tweets %>% mutate(iconv(text, from = "UTF-8", to = "ASCII"))
 
+# first use "byte" to ensures that the hex code is retained for reading emojis (see later)
+text_emojis <- iconv(raw_tweets$text, from = "UTF-8", to = "ascii", sub = "byte")
+
 ## Load emoji dictionary
 
 # read eomji dictionary (from https://github.com/today-is-a-good-day/emojis/blob/master/emDict.csv)
@@ -109,7 +112,7 @@ write_feather(summary, "feathers/summary.feather")
 
 hashtag_pattern <- "#[[:alnum:]]+" # regex pattern: hashtags
 
-all_hashtags <- regex_match(text_emojis$text, 
+all_hashtags <- regex_match(text_emojis, 
                             match_to = hashtag_pattern, 
                             col_headings = c("tag", "freq")) %>%
                 filter(tag %not in% search_query)
@@ -120,7 +123,7 @@ write_feather(all_hashtags, "feathers/all_hashtags.feather")
 
 mention_pattern <- "@[[:alnum:][:punct:]]+" # regex pattern: hashtags
 
-all_mentions <-regex_match(text_emojis$text, 
+all_mentions <-regex_match(text_emojis, 
                            match_to = mention_pattern, 
                            col_headings = c("mention", "freq"))
 
@@ -366,8 +369,6 @@ write_feather(emSentimentDict, "emoji_dictionaries/emSentimentDict.feather")
 
 # first lets get the emojis
 
-# first use "byte" to ensures that the hex code is retained for reading emojis (see later)
-text_emojis <- iconv(raw_tweets$text, from = "UTF-8", to = "ascii", sub = "byte")
 all_emojis <- regex_match(text_emojis, match_to = r_encoding_pattern, col_headings = c("emoji_code", "emoji_freq") )
 
 write_feather(all_emojis, "feathers/all_emojis.feather")
