@@ -315,20 +315,20 @@ bing_nrc_sentiments$tweets_per_hour <- aggregate(tidy_words, by = list(tidy_word
 
 # Sentiment ##########################################################################################################
 
-sentiment <- tidy_words %>% inner_join(get_sentiments("bing"))
+sentiment_by_word <- tidy_words %>% inner_join(get_sentiments("bing"))
 
 # proportion of words with sentiment matches?
 
-nrow(sentiment)/nrow(tidy_words) # answer is 0.1000051 i.e. 10%   :\
+nrow(sentiment_by_word)/nrow(tidy_words) # answer is 0.1000051 i.e. 10%   :\
 
 # save
-write_feather(sentiment, "feathers/sentiment.feather")
+write_feather(sentiment_by_word, "feathers/sentiment.feather")
 
 # further processing for useful plots
 sentiment_over_time <- count(sentiment_by_word, time_interval, sentiment) %>%
                        spread(sentiment, n, fill = 0)
 
-write_feather(sentiment_over_time, "sentiment_over_time.feather")
+write_feather(sentiment_over_time, "feathers/sentiment_over_time.feather")
 
 # just the positive and negative words
 
